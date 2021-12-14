@@ -96,6 +96,7 @@ def ProduceBVData(points, bv_common_settings, bv_range_settings, if_square_dilat
     return concat_data
 ```
 送入网络后：
+
 ![image](https://user-images.githubusercontent.com/83415336/145929602-ce6a76a3-e7c8-4daa-b504-e1952bcb6625.png)
 
 输出为torch.Size([1,33,84,1200])
