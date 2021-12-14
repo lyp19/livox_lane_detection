@@ -72,3 +72,55 @@ For example, if you want to detect the lane in front of the car, you can configu
 ```bash
 LIDAR_IDs = ["1", "6"]
 ```
+
+
+livox网络输入：torch.Size([1,2,84,1200])
+```
+def ProduceBVData(points, bv_common_settings, bv_range_settings, if_square_dilate = True):
+    bv_im_width = int((right_distance + left_distance)*width_resolution)
+    bv_im_height = int((max_distance - min_distance) * distance_resolution)
+    im_intensity = np.zeros((bv_im_height, bv_im_width, 1)).astype(np.float32)
+    height_map = np.zeros((bv_im_height, bv_im_width, 1)).astype(np.float32)
+#这里先设置bv长宽
+    point_num = points.shape[0]
+     for i in range(point_num):
+            x = points[i, 0]*distance_resolution
+            y = points[i, 1]*width_resolution
+             start_x = max(0, np.ceil(im_x - vis_point_radius))
+            end_x = min(bv_im_width -1, np.ceil(im_x + vis_point_radius) - 1) + 1
+            start_y = max(0, np.ceil(im_y - vis_point_radius))
+            end_y = min(bv_im_height -1, np.ceil(im_y + vis_point_radius) - 1) + 1
+            im_intensity[start_y:end_y, start_x:end_x, 0] = np.maximum(points[i, 3], im_intensity[start_y:end_y, start_x:end_x, 0])
+            height_map[start_y:end_y, start_x:end_x, 0] = np.maximum(points[i, 2], height_map[start_y:end_y, start_x:end_x, 0])
+    concat_data = np.concatenate((im_intensity, height_map), axis=2)
+    return concat_data
+```
+送入网络后：
+![image|690x122](upload://nV4o6xIjUgSgPCWyZQeXglQUZ3.png)
+输出为torch.Size([1,33,84,1200])
+33为设定的参数num_class
+随后进行argmax操作得到 label_map(84,1200)
+```
+if im_x >= 0 and im_x < bv_im_width and im_y >= 0 and im_y < bv_im_height:
+                point_classes[i] = bv_label_map[im_y, im_x]
+```
+随后将label_map值放入point_class
+最后可视化点云为图片：
+```
+def VisualizePointsClass(points_input):
+    output_img_h = 1080
+    output_img_w = 1920
+    output_img_w1 = int(output_img_w / 2)
+    K, P, P_world = GetMatrices([output_img_h, output_img_w1])
+    intensity_show = GetProjectImage(points_input, 
+                                     points_input[:, 3]*255, 
+                                     [output_img_h, output_img_w1], 
+                                     K, P, P_world, color_table)
+    class_show = GetProjectImage(points_input, 
+                                     points_input[:, 4], 
+                                     [output_img_h, output_img_w1], 
+                                     K, P, P_world, color_table_for_class)
+    vis_img = np.concatenate([intensity_show, class_show], axis = 1)
+    return vis_img
+```
+intensity图和class图
